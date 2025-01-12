@@ -9,11 +9,11 @@ map.attributionControl.addAttribution(
 // add link to an imprint and a privacy statement if the file is available.
 function addPrivacyStatement() {
     var xhr = new XMLHttpRequest();
-    xhr.open('HEAD', "./static/datenschutz.html");
+    xhr.open('HEAD', "/static/datenschutz.html");
     xhr.onload = function() {
         if (xhr.status === 200)
             map.attributionControl.addAttribution(
-                '<a href="./static/datenschutz.html" target="_blank">Impressum & Datenschutzerkl&auml;rung</a>'
+                '<a href="/static/datenschutz.html" target="_blank">Impressum & Datenschutzerkl&auml;rung</a>'
             );
     }
     xhr.send();
