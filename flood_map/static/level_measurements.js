@@ -2,39 +2,87 @@ function isValidLatLng(lat, lng) {
     return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
 }
 
-async function fetchStations() {
+async function fetchWsvStations() {
     try {
         const response = await fetch('https://pegelonline.wsv.de/webservices/rest-api/v2/stations.json?includeTimeseries=true');
         const data = await response.json();
         return data;
     } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Error fetching WSV data:', error);
         return [];
     }
 }
 
-function createGeoJSON(data) {
+async function fetchNlwknData() {
+    try {
+        const response = await fetch('https://bis.azure-api.net/PegelonlinePublic/REST/stammdaten/stationen/All?key=9dc05f4e3b4a43a9988d747825b39f43');
+        const data = await response.json();
+        return data.getStammdatenResult;
+    } catch (error) {
+        console.error('Error fetching NLWKN data:', error);
+        return [];
+    }
+}
+
+function createWsvGeoJSON(data) {
     return {
         type: "FeatureCollection",
         features: data
             .filter(station => isValidLatLng(station.latitude, station.longitude))
-            .map(station => ({
-                type: "Feature",
-                geometry: {
-                    type: "Point",
-                    coordinates: [station.longitude, station.latitude]
-                },
-                properties: {
-                    uuid: station.uuid,
-                    number: station.number,
-                    shortname: station.shortname,
-                    longname: station.longname,
-                    km: station.km,
-                    agency: station.agency,
-                    water: station.water,
-                    timeseries: station.timeseries
+            .map(station => {
+                const series = station.timeseries.find(series => series.shortname === 'W');
+                if (!series) {
+                    return null;
                 }
-            }))
+                return {
+                    type: "Feature",
+                    geometry: {
+                        type: "Point",
+                        coordinates: [station.longitude, station.latitude]
+                    },
+                    properties: {
+                        uuid: station.uuid,
+                        number: station.number,
+                        shortname: station.shortname,
+                        longname: station.longname,
+                        km: station.km,
+                        agency: station.agency,
+                        water: station.water,
+                        timeseries: station.timeseries,
+                        unit: series.unit,
+                        gaugeZero: station.gaugeZero
+                    }
+                };
+            }).filter(feature => feature !== null)
+    };
+}
+
+function createGeoJSONFromNLWKN(data) {
+    return {
+        type: "FeatureCollection",
+        features: data
+            .filter(station => station.Parameter[0].Name === 'Wasserstand')
+            .map(station => {
+                const datenspur = station.Parameter[0].Datenspuren[0];
+                return {
+                    type: "Feature",
+                    geometry: {
+                        type: "Point",
+                        coordinates: [parseFloat(station.Latitude), parseFloat(station.Longitude)]
+                    },
+                    properties: {
+                        GewaesserName: station.GewaesserName,
+                        Hoehe: station.Hoehe,
+                        Name: station.Name,
+                        AktuellerMesswert: datenspur.AktuellerMesswert,
+                        AktuellerMesswertNNM: datenspur.AktuellerMesswertNNM,
+                        AktuellerMesswert_Zeitpunkt: datenspur.AktuellerMesswert_Zeitpunkt,
+                        time: datenspur.AktuellerMesswert_Zeitpunkt.split(' ')[1],
+                        Einheit: datenspur.ParameterEinheit,
+                        STA_ID: station.STA_ID
+                    }
+                };
+            })
     };
 }
 
@@ -45,7 +93,7 @@ function formatTime(timestamp) {
     return `${hours}:${minutes}`;
 }
 
-async function onTooltipOpen(feature, marker) {
+async function onWsvTooltipOpen(feature, marker) {
     const uuid = feature.properties.uuid;
     const url = `https://pegelonline.wsv.de/webservices/rest-api/v2/stations/${uuid}/W/measurements.json?start=PT3H`;
 
@@ -58,19 +106,16 @@ async function onTooltipOpen(feature, marker) {
             const value = lastMeasurement.value;
             const time = formatTime(lastMeasurement.timestamp);
 
-            const series = feature.properties.timeseries.find(series => series.shortname === 'W');
-            const unit = series.unit;
-
             let tooltipContent = `
                 <strong>${feature.properties.longname}</strong><br>
                 <strong>${feature.properties.water.longname}</strong> (km ${feature.properties.km})<br>
-                <strong>${value} ${unit}</strong> (${time})
+                <strong>${value} ${feature.properties.unit}</strong> (${time})
             `;
 
-            if (series.gaugeZero && (series.gaugeZero.unit === 'm. ü. NN' || series.gaugeZero.unit === 'm. ü. NHN') && unit === 'cm') {
-                const gaugeZeroValue = series.gaugeZero.value;
+            if (feature.properties.gaugeZero && (feature.properties.gaugeZero.unit === 'm. ü. NN' || feature.properties.gaugeZero.unit === 'm. ü. NHN') && feature.properties.unit === 'cm') {
+                const gaugeZeroValue = feature.properties.gaugeZero.value;
                 const adjustedValue = (value / 100) + gaugeZeroValue;
-                tooltipContent += `<br><strong>${adjustedValue.toFixed(2)} ${series.gaugeZero.unit}</strong>`;
+                tooltipContent += `<br><strong>${adjustedValue.toFixed(2)} ${feature.properties.gaugeZero.unit}</strong>`;
             }
 
             marker.setTooltipContent(tooltipContent);
@@ -80,11 +125,12 @@ async function onTooltipOpen(feature, marker) {
     }
 }
 
-async function initMap() {
-    const data = await fetchStations();
-    const geojson = createGeoJSON(data);
+async function initLevelMap() {
+    const [wsvData, nlwknData] = await Promise.all([fetchWsvStations(), fetchNlwknData()]);
+    const wsvGeojson = createWsvGeoJSON(wsvData);
+    const nlwknGeojson = createGeoJSONFromNLWKN(nlwknData);
 
-    var levelMeasurements = L.geoJSON(geojson, {
+    var wsvLevelMeasurements = L.geoJSON(wsvGeojson, {
         pointToLayer: function(feature, latlng) {
             const marker = L.marker(latlng, {
                 icon: L.icon({
@@ -102,28 +148,63 @@ async function initMap() {
             `);
 
             marker.on('tooltipopen', function() {
-                onTooltipOpen(feature, marker);
+                onWsvTooltipOpen(feature, marker);
             });
 
             return marker;
         }
     });
 
-    var levelMeasurementsGroup = L.layerGroup([levelMeasurements]);
+    var nlwknLevelMeasurements = L.geoJSON(nlwknGeojson, {
+        pointToLayer: function(feature, latlng) {
+            const marker = L.marker(latlng, {
+                icon: L.icon({
+                    iconUrl: '/static/img/level_staff_white.svg',
+                    shadowUrl: '/static/img/level_staff_shadow.png',
+                    shadowSize: [46, 66],
+                    shadowAnchor: [0, 66],
+                    iconSize: [10, 121],
+                    iconAnchor: [5, 121],
+                    tooltipAnchor: [0, -121]
+                })
+            }).bindTooltip(`
+                <strong>${feature.properties.Name}</strong><br>
+                <strong>${feature.properties.GewaesserName}</strong><br>
+                <strong>${feature.properties.AktuellerMesswert} ${feature.properties.Einheit}</strong> (${feature.properties.time})<br>
+                <strong>${feature.properties.AktuellerMesswertNNM} m+NN</strong>
+            `);
+
+            marker.on('tooltipopen', function() {
+                // TODO fetch data and update tooltip
+                // https://bis.azure-api.net/PegelonlinePublic/REST/station/{feature.properties.STA_ID}/datenspuren/parameter/1/tage/-1?key=9dc05f4e3b4a43a9988d747825b39f43
+                console.log(feature, marker);
+            });
+
+            return marker
+        }
+    });
+
+    var levelMeasurementsGroup = L.layerGroup([wsvLevelMeasurements, nlwknLevelMeasurements]);
     levelMeasurementsGroup.addTo(map);
     layerControl.addOverlay(levelMeasurementsGroup, "water level stations");
 
     map.on('zoomend', function() {
         if (map.getZoom() >= 10) {
-            if (!levelMeasurementsGroup.hasLayer(levelMeasurements)) {
-                levelMeasurementsGroup.addLayer(levelMeasurements);
+            if (!levelMeasurementsGroup.hasLayer(wsvLevelMeasurements)) {
+                levelMeasurementsGroup.addLayer(wsvLevelMeasurements);
+            }
+            if (!levelMeasurementsGroup.hasLayer(nlwknLevelMeasurements)) {
+                levelMeasurementsGroup.addLayer(nlwknLevelMeasurements);
             }
         } else {
-            if (levelMeasurementsGroup.hasLayer(levelMeasurements)) {
-                levelMeasurementsGroup.removeLayer(levelMeasurements);
+            if (levelMeasurementsGroup.hasLayer(wsvLevelMeasurements)) {
+                levelMeasurementsGroup.removeLayer(wsvLevelMeasurements);
+            }
+            if (levelMeasurementsGroup.hasLayer(nlwknLevelMeasurements)) {
+                levelMeasurementsGroup.removeLayer(nlwknLevelMeasurements);
             }
         }
     });
 }
 
-initMap();
+initLevelMap();
