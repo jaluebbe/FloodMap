@@ -24,6 +24,18 @@ async function fetchNlwknData() {
     }
 }
 
+async function fetchNlwknStationData(sta_id) {
+    try {
+        const url = `https://bis.azure-api.net/PegelonlinePublic/REST/station/${sta_id}/datenspuren/parameter/1/tage/-1?key=9dc05f4e3b4a43a9988d747825b39f43`;
+        const response = await fetch(url);
+        const data = await response.json();
+        return data.getPegelDatenspurenResult;
+    } catch (error) {
+        console.error('Error fetching NLWKN station data:', error);
+        return null;
+    }
+}
+
 function createWsvGeoJSON(data) {
     return {
         type: "FeatureCollection",
@@ -125,6 +137,40 @@ async function onWsvTooltipOpen(feature, marker) {
     }
 }
 
+async function onNlwknTooltipOpen(feature, marker) {
+    const stationData = await fetchNlwknStationData(feature.properties.STA_ID);
+    if (!stationData) return;
+    const datenspur = stationData.Parameter[0].Datenspuren[0];
+    const time = datenspur.AktuellerMesswert_Zeitpunkt.split(' ')[1];
+    let tooltipContent = `
+            <strong>${feature.properties.Name}</strong><br>
+            <strong>${feature.properties.GewaesserName}</strong><br>
+            <strong>${datenspur.AktuellerMesswert} ${datenspur.ParameterEinheit}</strong> (${time})<br>
+            <strong>${datenspur.AktuellerMesswertNNM} m+NN</strong>
+    `;
+    marker.setTooltipContent(tooltipContent);
+}
+
+function createMarker(feature, latlng, iconUrl, tooltipContent, onTooltipOpen) {
+    const marker = L.marker(latlng, {
+        icon: L.icon({
+            iconUrl: iconUrl,
+            shadowUrl: '/static/img/level_staff_shadow.png',
+            shadowSize: [46, 66],
+            shadowAnchor: [0, 66],
+            iconSize: [10, 121],
+            iconAnchor: [5, 121],
+            tooltipAnchor: [0, -121]
+        })
+    }).bindTooltip(tooltipContent);
+
+    marker.on('tooltipopen', function() {
+        onTooltipOpen(feature, marker);
+    });
+
+    return marker;
+}
+
 async function initLevelMap() {
     const [wsvData, nlwknData] = await Promise.all([fetchWsvStations(), fetchNlwknData()]);
     const wsvGeojson = createWsvGeoJSON(wsvData);
@@ -133,56 +179,24 @@ async function initLevelMap() {
     var wsvLevelMeasurements = L.geoJSON(wsvGeojson, {
         attribution: '&copy; <a href="https://pegelonline.wsv.de/">WSV</a>',
         pointToLayer: function(feature, latlng) {
-            const marker = L.marker(latlng, {
-                icon: L.icon({
-                    iconUrl: '/static/img/level_staff_yellow.svg',
-                    shadowUrl: '/static/img/level_staff_shadow.png',
-                    shadowSize: [46, 66],
-                    shadowAnchor: [0, 66],
-                    iconSize: [10, 121],
-                    iconAnchor: [5, 121],
-                    tooltipAnchor: [0, -121]
-                })
-            }).bindTooltip(`
+            const tooltipContent = `
                 <strong>${feature.properties.longname}</strong><br>
                 <strong>${feature.properties.water.longname}</strong> (km ${feature.properties.km})
-            `);
-
-            marker.on('tooltipopen', function() {
-                onWsvTooltipOpen(feature, marker);
-            });
-
-            return marker;
+            `;
+            return createMarker(feature, latlng, '/static/img/level_staff_yellow.svg', tooltipContent, onWsvTooltipOpen);
         }
     });
 
     var nlwknLevelMeasurements = L.geoJSON(nlwknGeojson, {
         attribution: '&copy; <a href="https://www.pegelonline.nlwkn.niedersachsen.de/">NLWKN</a>',
         pointToLayer: function(feature, latlng) {
-            const marker = L.marker(latlng, {
-                icon: L.icon({
-                    iconUrl: '/static/img/level_staff_white.svg',
-                    shadowUrl: '/static/img/level_staff_shadow.png',
-                    shadowSize: [46, 66],
-                    shadowAnchor: [0, 66],
-                    iconSize: [10, 121],
-                    iconAnchor: [5, 121],
-                    tooltipAnchor: [0, -121]
-                })
-            }).bindTooltip(`
+            const tooltipContent = `
                 <strong>${feature.properties.Name}</strong><br>
                 <strong>${feature.properties.GewaesserName}</strong><br>
                 <strong>${feature.properties.AktuellerMesswert} ${feature.properties.Einheit}</strong> (${feature.properties.time})<br>
                 <strong>${feature.properties.AktuellerMesswertNNM} m+NN</strong>
-            `);
-
-            marker.on('tooltipopen', function() {
-                // TODO fetch data and update tooltip
-                // https://bis.azure-api.net/PegelonlinePublic/REST/station/{feature.properties.STA_ID}/datenspuren/parameter/1/tage/-1?key=9dc05f4e3b4a43a9988d747825b39f43
-                console.log(feature, marker);
-            });
-
-            return marker
+            `;
+            return createMarker(feature, latlng, '/static/img/level_staff_white.svg', tooltipContent, onNlwknTooltipOpen);
         }
     });
 
