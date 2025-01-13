@@ -50,7 +50,7 @@ function createWsvGeoJSON(data) {
                         water: station.water,
                         timeseries: station.timeseries,
                         unit: series.unit,
-                        gaugeZero: station.gaugeZero
+                        gaugeZero: series.gaugeZero
                     }
                 };
             }).filter(feature => feature !== null)
