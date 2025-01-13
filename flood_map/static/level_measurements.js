@@ -131,6 +131,7 @@ async function initLevelMap() {
     const nlwknGeojson = createGeoJSONFromNLWKN(nlwknData);
 
     var wsvLevelMeasurements = L.geoJSON(wsvGeojson, {
+        attribution: '&copy; <a href="https://pegelonline.wsv.de/">WSV</a>',
         pointToLayer: function(feature, latlng) {
             const marker = L.marker(latlng, {
                 icon: L.icon({
@@ -156,6 +157,7 @@ async function initLevelMap() {
     });
 
     var nlwknLevelMeasurements = L.geoJSON(nlwknGeojson, {
+        attribution: '&copy; <a href="https://www.pegelonline.nlwkn.niedersachsen.de/">NLWKN</a>',
         pointToLayer: function(feature, latlng) {
             const marker = L.marker(latlng, {
                 icon: L.icon({
