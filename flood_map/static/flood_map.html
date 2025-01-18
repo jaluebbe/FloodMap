@@ -15,9 +15,37 @@
 
 <body>
     <div id="map"></div>
+    <template id="colorScaleControlTemplate">
+        <div class="legend-header">Terrain</div>
+        <img src="" id="colorScaleImg">
+        <div class="legend-label">m MSL</div>
+    </template>
+    <template id="customControlTemplate">
+        <div class="legend-header">Custom level</div>
+        <div class="legend-item"><input type="number" id="customLevelInput" step="0.1" value="20" style="width: 7ch;" onchange="customLevelChanged();" /></div>
+        <div class="legend-item">
+            <div class="legend-color blue"></div>
+            <div id="legendValueBlue">&lt; 19</div></div>
+            <div class="legend-item">
+                <div class="legend-color red"></div>
+                <div id="legendValueRed">19 to 20</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color yellow"></div>
+                <div id="legendValueYellow">20 to 20.5</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color green"></div>
+                <div id="legendValueGreen">20.5 to 21</div>
+            </div>
+            <div class="legend-label">m MSL</div>
+    </template>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/proj4@2.8.0/dist/proj4-src.js"></script>
+    <script src="https://unpkg.com/leaflet.imageoverlay.arrugator@1.0.0/dist/leaflet.imageoverlay.arrugator.js"></script>
     <script src="/static/flood_map_base.js"></script>
     <script src="/static/level_measurements.js"></script>
+    <script src="/static/dgm1.js"></script>
 </body>
 
 </html>

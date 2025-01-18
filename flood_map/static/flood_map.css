@@ -10,3 +10,62 @@ body {
     min-height: 285px;
     height: 98%;
 }
+
+.legend-label {
+    font-size: 12px;
+    text-align: center;
+    font-weight: bold;
+}
+
+.color-scale-control {
+    background: white;
+    line-height: 1.5;
+    color: #333;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+    border-radius: 5px;
+    padding: 5px;
+}
+
+.custom-control {
+    background: white;
+    line-height: 1.5;
+    color: #333;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+    border-radius: 5px;
+    padding: 5px;
+}
+
+.legend-header {
+    font-size: 14px;
+    text-align: center;
+    font-weight: bold;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.custom-control .legend-color {
+    width: 20px;
+    height: 20px;
+    margin-right: 10px;
+    border-radius: 3px;
+}
+
+.custom-control .legend-color.blue {
+    background: blue;
+}
+
+.custom-control .legend-color.red {
+    background: red;
+}
+
+.custom-control .legend-color.yellow {
+    background: yellow;
+}
+
+.custom-control .legend-color.green {
+    background: green;
+}
