@@ -1,4 +1,4 @@
-var map = L.map('map').setView([52.5, 7.3], 14);
+var map = L.map('map').setView([52.5, 7.3], 15);
 if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(function(position) {
         map.setView([position.coords.latitude, position.coords.longitude]);
