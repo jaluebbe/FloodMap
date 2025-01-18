@@ -1,9 +1,11 @@
 var map = L.map('map').setView([52.5, 7.3], 15);
+// uncomment the following to enable geolocation in the browser
+/*
 if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(function(position) {
         map.setView([position.coords.latitude, position.coords.longitude]);
     });
-}
+}*/
 map.attributionControl.addAttribution(
     '<a href="https://github.com/jaluebbe/FloodMap">Source on GitHub</a>');
 // add link to an imprint and a privacy statement if the file is available.
