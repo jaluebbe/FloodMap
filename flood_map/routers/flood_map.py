@@ -71,22 +71,20 @@ def convert_epsg25832_to_lon_lat(
 ) -> tuple[tuple[float, float], tuple[float, float]]:
     lon_min, lat_min = transformer_to_wgs84.transform(x_min, y_min)
     lon_max, lat_max = transformer_to_wgs84.transform(x_max, y_max)
-    lat_min = round(lat_min, 6)
-    lon_min = round(lon_min, 6)
-    lat_max = round(lat_max, 6)
-    lon_max = round(lon_max, 6)
-    return (lon_min, lat_min), (lon_max, lat_max)
+    return (
+        (round(lon_min, 6), round(lat_min, 6)),
+        (round(lon_max, 6), round(lat_max, 6)),
+    )
 
 
 def list_tile_ids(lower_left, upper_right) -> list[str]:
     x_min, y_min = lower_left
     x_max, y_max = upper_right
-    tile_ids = [
+    return [
         f"32{x}{y}"
         for x in range(x_min // 1000, x_max // 1000)
         for y in range(y_min // 1000, y_max // 1000)
     ]
-    return tile_ids
 
 
 def get_geotiff_data(file_name: str, tile_id: str) -> dict:
@@ -121,8 +119,7 @@ def apply_terrain_colormap(
     cmap = plt.get_cmap("terrain")
     norm = mcolors.Normalize(vmin=h_min, vmax=h_max)
     rgba_img = cmap(norm(data))
-    rgba_img = (rgba_img * 255).astype(np.uint8)
-    return rgba_img
+    return (rgba_img * 255).astype(np.uint8)
 
 
 def process_tile_id(tile_id: str) -> dict | None:
@@ -160,25 +157,22 @@ def create_terrain_colormap(z_min: float, z_max: float) -> str:
     return f"data:image/png;base64,{colormap_base64}"
 
 
-def create_terrain_raster(
-    data,
-    z_min: float,
-    z_max: float,
-    custom: bool = False,
-    custom_level: float | None = None,
+def create_raster_image(
+    data: np.ndarray,
+    custom_level: float = None,
+    z_min: float = None,
+    z_max: float = None,
 ) -> str:
-    rgba_img = apply_terrain_colormap(data, z_min, z_max)
-    if custom:
-        rgba_img = apply_custom_colorcode(rgba_img, data, custom_level)
-    img = Image.fromarray(rgba_img, "RGBA")
-    img_buffer = BytesIO()
-    img.save(img_buffer, format="PNG")
-    img_base64 = base64.b64encode(img_buffer.getvalue()).decode("utf-8")
-    return f"data:image/png;base64,{img_base64}"
-
-
-def create_custom_raster(data, z_level: float) -> str:
-    rgba_img = apply_custom_colormap(data, z_level)
+    if not None in (z_min, z_max):
+        rgba_img = apply_terrain_colormap(data, z_min, z_max)
+        if custom_level is not None:
+            apply_custom_colorcode(rgba_img, data, custom_level)
+    elif custom_level is not None:
+        rgba_img = apply_custom_colormap(data, custom_level)
+    else:
+        raise ValueError(
+            "Either z_min and z_max or custom_level must be provided."
+        )
     img = Image.fromarray(rgba_img, "RGBA")
     img_buffer = BytesIO()
     img.save(img_buffer, format="PNG")
@@ -192,11 +186,21 @@ def get_min_max_elevation(data) -> tuple[float, float]:
     for tile_data in data:
         min_tile = np.min(tile_data["mosaic"])
         max_tile = np.max(tile_data["mosaic"])
-        if min_tile < z_min:
-            z_min = min_tile
-        if max_tile > z_max:
-            z_max = max_tile
+        z_min = min(z_min, min_tile)
+        z_max = max(z_max, max_tile)
     return z_min, z_max
+
+
+def get_dgm1_tiles(
+    lower_left_epsg25832: tuple[int, int],
+    upper_right_epsg25832: tuple[int, int],
+) -> list[dict]:
+    tile_ids = list_tile_ids(lower_left_epsg25832, upper_right_epsg25832)
+    return [
+        data
+        for tile_id in tile_ids
+        if (data := process_tile_id(tile_id)) is not None
+    ]
 
 
 @router.get("/dgm1", response_model=DGM1Data)
@@ -209,19 +213,14 @@ def get_dgm1_data(
     custom: Annotated[bool, Query(alias="custom")] = False,
     custom_level: Annotated[float, Query(alias="custom_level")] = 19.2,
 ) -> DGM1Data:
-    (lower_left_epsg25832, upper_right_epsg25832) = convert_bounds_to_epsg25832(
+    lower_left_epsg25832, upper_right_epsg25832 = convert_bounds_to_epsg25832(
         lat_min, lon_min, lat_max, lon_max
     )
-    (lon_lat_min, lon_lat_max) = convert_epsg25832_to_lon_lat(
+    lon_lat_min, lon_lat_max = convert_epsg25832_to_lon_lat(
         *lower_left_epsg25832, *upper_right_epsg25832
     )
     bbox = [*lon_lat_min, *lon_lat_max]
-    tile_ids = list_tile_ids(lower_left_epsg25832, upper_right_epsg25832)
-    all_data = [
-        data
-        for tile_id in tile_ids
-        if (data := process_tile_id(tile_id)) is not None
-    ]
+    all_data = get_dgm1_tiles(lower_left_epsg25832, upper_right_epsg25832)
     dgm1_data = {
         "bbox": bbox,
     }
@@ -229,8 +228,11 @@ def get_dgm1_data(
         z_min, z_max = get_min_max_elevation(all_data)
         terrain_tiles = [
             {
-                "rasterImage": create_terrain_raster(
-                    data["mosaic"], z_min, z_max, custom, custom_level
+                "rasterImage": create_raster_image(
+                    data["mosaic"],
+                    z_min=z_min,
+                    z_max=z_max,
+                    custom_level=custom_level if custom else None,
                 ),
                 "bounds": data["bounds"],
                 "crs": data["crs"].to_string(),
@@ -245,8 +247,8 @@ def get_dgm1_data(
     if custom and not terrain:
         custom_tiles = [
             {
-                "rasterImage": create_custom_raster(
-                    data["mosaic"], custom_level
+                "rasterImage": create_raster_image(
+                    data["mosaic"], custom_level=custom_level
                 ),
                 "bounds": data["bounds"],
                 "crs": data["crs"].to_string(),
@@ -259,3 +261,31 @@ def get_dgm1_data(
         }
         dgm1_data["custom"] = dgm1_custom_data
     return dgm1_data
+
+
+@router.get("/dgm1/terrain", response_model=DGM1Data)
+def get_dgm1_terrain_data(
+    lat_min: Annotated[float, Query(alias="lat_min")],
+    lon_min: Annotated[float, Query(alias="lon_min")],
+    lat_max: Annotated[float, Query(alias="lat_max")],
+    lon_max: Annotated[float, Query(alias="lon_max")],
+) -> DGM1Data:
+    return get_dgm1_data(lat_min, lon_min, lat_max, lon_max, terrain=True)
+
+
+@router.get("/dgm1/custom", response_model=DGM1Data)
+def get_dgm1_custom_data(
+    lat_min: Annotated[float, Query(alias="lat_min")],
+    lon_min: Annotated[float, Query(alias="lon_min")],
+    lat_max: Annotated[float, Query(alias="lat_max")],
+    lon_max: Annotated[float, Query(alias="lon_max")],
+    custom_level: Annotated[float, Query(alias="custom_level")] = 19.2,
+) -> DGM1Data:
+    return get_dgm1_data(
+        lat_min,
+        lon_min,
+        lat_max,
+        lon_max,
+        custom=True,
+        custom_level=custom_level,
+    )
