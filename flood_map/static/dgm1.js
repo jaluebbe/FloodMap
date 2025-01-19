@@ -88,8 +88,7 @@ async function fetchDGM1Data(bounds, terrain, custom, customLevel) {
         url += `&custom_level=${customLevel}`;
     }
     const response = await fetch(url);
-    const data = await response.json();
-    return data;
+    return response.json();
 }
 
 var colormap = undefined;
@@ -136,7 +135,7 @@ async function checkZoomAndBounds(eventLayer) {
         if (map.hasLayer(customOverlay) && document.getElementById('customLevelInput')) {
             customLevel = parseFloat(document.getElementById('customLevelInput').value);
         }
-        if (eventLayer.type != 'overlayadd' && dgm1_bbox !== undefined && lastCustomLevel === customLevel) {
+        if (eventLayer.type != 'overlayremove' && eventLayer.type != 'overlayadd' && dgm1_bbox !== undefined && lastCustomLevel === customLevel) {
             let dgm1_bounds = L.latLngBounds(
                 L.latLng(dgm1_bbox[1], dgm1_bbox[0]),
                 L.latLng(dgm1_bbox[3], dgm1_bbox[2])
@@ -166,12 +165,6 @@ async function checkZoomAndBounds(eventLayer) {
                 isFetching = false;
             }
         }
-    } else {
-        customOverlay.clearLayers();
-        terrainOverlay.clearLayers();
-        map.removeControl(colorScaleControl);
-        dgm1_bbox = undefined;
-        lastCustomLevel = undefined;
     }
 }
 
