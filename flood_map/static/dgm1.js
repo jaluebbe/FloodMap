@@ -36,7 +36,7 @@ function updateLegend(customLevel) {
     document.getElementById('legendValueBlue').innerText = `< ${customLevel - 1}`;
     document.getElementById('legendValueRed').innerText = `${customLevel - 1} to ${customLevel}`;
     document.getElementById('legendValueYellow').innerText = `${customLevel} to ${customLevel + 0.5}`;
-//    document.getElementById('legendValueGreen').innerText = `${customLevel + 0.5} to ${customLevel + 1}`;
+    //    document.getElementById('legendValueGreen').innerText = `${customLevel + 0.5} to ${customLevel + 1}`;
 }
 
 function customLevelChanged() {
@@ -68,8 +68,8 @@ function projectRasterImage(rasterImage, bounds, crs, attribution, pane) {
             pane: pane
         })
 }
-var dgm1_bbox = undefined;
-var lastCustomLevel = undefined;
+var dgm1_bbox;
+var lastCustomLevel;
 var isFetching = false;
 const dgm1Attribution = '&copy DGM1, <a href="https://www.lgln.niedersachsen.de">LGLN</a> 2025'
 const terrainOverlay = L.layerGroup();
@@ -126,23 +126,19 @@ function updateLayers(dgm1_data) {
 }
 
 async function checkZoomAndBounds(eventLayer) {
-    if (isFetching) {
-        return;
-    }
+    if (isFetching) return;
     if (map.getZoom() > 14) {
         const map_bounds = map.getBounds();
         let customLevel;
         if (map.hasLayer(customOverlay) && document.getElementById('customLevelInput')) {
             customLevel = parseFloat(document.getElementById('customLevelInput').value);
         }
-        if (eventLayer.type != 'overlayremove' && eventLayer.type != 'overlayadd' && dgm1_bbox !== undefined && lastCustomLevel === customLevel) {
+        if (eventLayer.type !== 'overlayremove' && eventLayer.type !== 'overlayadd' && dgm1_bbox !== undefined && lastCustomLevel === customLevel) {
             let dgm1_bounds = L.latLngBounds(
                 L.latLng(dgm1_bbox[1], dgm1_bbox[0]),
                 L.latLng(dgm1_bbox[3], dgm1_bbox[2])
             );
-            if (dgm1_bounds.contains(map_bounds)) {
-                return;
-            }
+            if (dgm1_bounds.contains(map_bounds)) return;
         }
         if (map.hasLayer(terrainOverlay) || map.hasLayer(customOverlay)) {
             isFetching = true;
@@ -153,6 +149,9 @@ async function checkZoomAndBounds(eventLayer) {
                     map.hasLayer(customOverlay),
                     customLevel
                 );
+                if (dgm1_data.custom && dgm1_data.custom.level !== undefined) {
+                    lastCustomLevel = dgm1_data.custom.level;
+                }
                 dgm1_bbox = dgm1_data.bbox;
                 updateLayers(dgm1_data);
                 if (map.hasLayer(terrainOverlay) && terrainOverlay.getLayers().length > 0) {
@@ -180,8 +179,10 @@ map.on('moveend', checkZoomAndBounds);
 map.on('overlayadd', function(eventLayer) {
     if (eventLayer.name === "custom") {
         map.addControl(customControl);
-    }
-    if (eventLayer.name === "terrain" || eventLayer.name === "custom") {
+        if (lastCustomLevel !== undefined)
+            customLevelInput.value = lastCustomLevel;
+        customLevelChanged();
+    } else if (eventLayer.name === "terrain") {
         checkZoomAndBounds(eventLayer);
     }
 });
