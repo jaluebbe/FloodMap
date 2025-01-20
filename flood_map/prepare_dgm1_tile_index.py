@@ -3,7 +3,7 @@ import requests
 from pathlib import Path
 
 tiles_dir = Path("dgm1_tiles")
-dgm1_tiles_dir.mkdir(parents=True, exist_ok=True)
+tiles_dir.mkdir(parents=True, exist_ok=True)
 
 geojson_url = "https://arcgis-geojson.s3.eu-de.cloud-object-storage.appdomain.cloud/dgm1/lgln-opengeodata-dgm1.geojson"
 response = requests.get(geojson_url)
