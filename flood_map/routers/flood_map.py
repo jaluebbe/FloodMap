@@ -101,7 +101,6 @@ def apply_custom_colorcode(rgba_img, data, level: float) -> np.ndarray:
     rgba_img[data < level - 1] = [0, 0, 255, 255]
     rgba_img[(data >= level - 1) & (data < level)] = [255, 0, 0, 255]
     rgba_img[(data >= level) & (data < level + 0.5)] = [255, 255, 0, 255]
-    # rgba_img[(data >= level + 0.5) & (data < level + 1)] = [0, 255, 0, 255]
     return rgba_img
 
 

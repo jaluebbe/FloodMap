@@ -36,7 +36,6 @@ function updateLegend(customLevel) {
     document.getElementById('legendValueBlue').innerText = `< ${customLevel - 1}`;
     document.getElementById('legendValueRed').innerText = `${customLevel - 1} to ${customLevel}`;
     document.getElementById('legendValueYellow').innerText = `${customLevel} to ${customLevel + 0.5}`;
-    //    document.getElementById('legendValueGreen').innerText = `${customLevel + 0.5} to ${customLevel + 1}`;
 }
 
 function customLevelChanged() {
