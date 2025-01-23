@@ -3,13 +3,6 @@ map.getPane('terrain').style.zIndex = 390;
 map.createPane('custom');
 map.getPane('custom').style.zIndex = 391;
 
-const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-}).addTo(map);
-
-proj4.defs("EPSG:25832", "+proj=utm +zone=32 +ellps=GRS80 +units=m +no_defs");
-
 var colorScaleControl = L.control({
     position: 'bottomright'
 });
@@ -90,8 +83,6 @@ async function fetchDGM1Data(bounds, terrain, custom, customLevel) {
     return response.json();
 }
 
-var colormap = undefined;
-
 function updateLayers(dgm1_data) {
     terrainOverlay.clearLayers();
     customOverlay.clearLayers();
@@ -107,7 +98,6 @@ function updateLayers(dgm1_data) {
             )
         );
         terrainOverlay.addLayer(L.layerGroup(terrainLayers));
-        colormap = dgm1_data.terrain.colormap;
     }
 
     if (dgm1_data.custom && dgm1_data.custom.tiles) {

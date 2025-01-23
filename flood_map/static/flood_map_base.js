@@ -1,3 +1,5 @@
+proj4.defs("EPSG:25832", "+proj=utm +zone=32 +ellps=GRS80 +units=m +no_defs");
+
 var map = L.map('map').setView([52.5, 7.3], 15);
 // uncomment the following to enable geolocation in the browser
 /*
