@@ -108,7 +108,7 @@ function fetchTerrainData() {
     if (isWithinBoundingBox(minX, minY, maxX, maxY, dgm1_terrain_bbox)) {
         return;
     }
-    const url = `http://127.0.0.1:8080/api/dgm1/terrain?` +
+    const url = `/api/dgm1/terrain?` +
         `lat_min=${minY}&lon_min=${minX}&lat_max=${maxY}&lon_max=${maxX}`;
     terrainRequestPending = true;
     fetch(url)
@@ -133,7 +133,7 @@ function fetchCustomData() {
     if (isWithinBoundingBox(minX, minY, maxX, maxY, dgm1_custom_bbox) && lastCustomLevel === customLevel) {
         return;
     }
-    const url = `http://127.0.0.1:8080/api/dgm1/custom?` +
+    const url = `/api/dgm1/custom?` +
         `lat_min=${minY}&lon_min=${minX}&lat_max=${maxY}&lon_max=${maxX}&` +
         `custom_level=${customLevel}`;
     customRequestPending = true;
