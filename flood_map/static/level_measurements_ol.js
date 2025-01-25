@@ -23,6 +23,7 @@ const whiteLevelStaff = new Style({
         anchorYUnits: 'fraction',
     }),
 });
+
 const vectorSource = new VectorSource({
     attributions: [
         '&copy; <a href="https://pegelonline.wsv.de/">WSV</a>',
@@ -35,12 +36,7 @@ const vectorLayer = new VectorLayer({
 });
 
 const tooltipElement = document.createElement('div');
-tooltipElement.className = 'ol-tooltip';
-tooltipElement.style.display = 'none';
-tooltipElement.style.backgroundColor = 'white';
-tooltipElement.style.padding = '5px';
-tooltipElement.style.border = '1px solid black';
-tooltipElement.style.borderRadius = '3px';
+tooltipElement.className = 'ol-tooltip level-tooltip';
 document.body.appendChild(tooltipElement);
 
 const tooltipOverlay = new Overlay({
@@ -50,39 +46,46 @@ const tooltipOverlay = new Overlay({
 });
 map.addOverlay(tooltipOverlay);
 
-fetchWsvStations().then(data => {
-    const geojson = createWsvGeoJSON(data);
-    const features = new GeoJSON().readFeatures(geojson);
-    features.forEach(feature => {
-        const coordinates = feature.getGeometry().getCoordinates();
-        const transformedCoordinates = ol.proj.fromLonLat(coordinates);
-        const properties = feature.getProperties();
-        properties.source = 'WSV';
-        const levelStaffFeature = new Feature({
-            geometry: new Point(transformedCoordinates),
-            properties: properties,
+function loadWsvData() {
+    fetchWsvStations().then(data => {
+        const geojson = createWsvGeoJSON(data);
+        const features = new GeoJSON().readFeatures(geojson);
+        features.forEach(feature => {
+            const coordinates = feature.getGeometry().getCoordinates();
+            const transformedCoordinates = ol.proj.fromLonLat(coordinates);
+            const properties = feature.getProperties();
+            properties.source = 'WSV';
+            const levelStaffFeature = new Feature({
+                geometry: new Point(transformedCoordinates),
+                properties: properties,
+            });
+            vectorSource.addFeature(levelStaffFeature);
+            levelStaffFeature.setStyle(yellowLevelStaff);
         });
-        vectorSource.addFeature(levelStaffFeature);
-        levelStaffFeature.setStyle(yellowLevelStaff);
     });
-});
+}
 
-fetchNlwknData().then(data => {
-    const geojson = createGeoJSONFromNLWKN(data);
-    const features = new GeoJSON().readFeatures(geojson);
-    features.forEach(feature => {
-        const coordinates = feature.getGeometry().getCoordinates();
-        const transformedCoordinates = ol.proj.fromLonLat(coordinates);
-        const properties = feature.getProperties();
-        properties.source = 'NLWKN';
-        const levelStaffFeature = new Feature({
-            geometry: new Point(transformedCoordinates),
-            properties: properties,
+function loadNlwknData() {
+    fetchNlwknData().then(data => {
+        const geojson = createGeoJSONFromNLWKN(data);
+        const features = new GeoJSON().readFeatures(geojson);
+        features.forEach(feature => {
+            const coordinates = feature.getGeometry().getCoordinates();
+            const transformedCoordinates = ol.proj.fromLonLat(coordinates);
+            const properties = feature.getProperties();
+            properties.source = 'NLWKN';
+            const levelStaffFeature = new Feature({
+                geometry: new Point(transformedCoordinates),
+                properties: properties,
+            });
+            vectorSource.addFeature(levelStaffFeature);
+            levelStaffFeature.setStyle(whiteLevelStaff);
         });
-        vectorSource.addFeature(levelStaffFeature);
-        levelStaffFeature.setStyle(whiteLevelStaff);
     });
-});
+}
+
+loadWsvData();
+loadNlwknData();
 
 let currentFeature = null;
 map.on('pointermove', function(evt) {
@@ -100,8 +103,8 @@ map.on('pointermove', function(evt) {
         tooltipOverlay.setPosition(coordinates);
         if (properties.source === 'WSV') {
             const tooltipContent = `
-            <strong>${properties.longname}</strong><br>
-            <strong>${properties.water.longname}</strong> (km ${properties.km})
+                <strong>${properties.longname}</strong><br>
+                <strong>${properties.water.longname}</strong> (km ${properties.km})
             `;
             tooltipElement.innerHTML = tooltipContent;
 
@@ -113,10 +116,10 @@ map.on('pointermove', function(evt) {
                     const value = lastMeasurement.value;
                     const time = formatTime(lastMeasurement.timestamp);
                     let tooltipContent = `
-                <strong>${properties.longname}</strong><br>
-                <strong>${properties.water.longname}</strong> (km ${properties.km})<br>
-                <strong>${value} ${properties.unit}</strong> (${time})
-            `;
+                        <strong>${properties.longname}</strong><br>
+                        <strong>${properties.water.longname}</strong> (km ${properties.km})<br>
+                        <strong>${value} ${properties.unit}</strong> (${time})
+                    `;
                     if (properties.gaugeZero && (properties.gaugeZero.unit === 'm. ü. NN' || properties.gaugeZero.unit === 'm. ü. NHN') && properties.unit === 'cm') {
                         const gaugeZeroValue = properties.gaugeZero.value;
                         const adjustedValue = (value / 100) + gaugeZeroValue;
@@ -126,7 +129,6 @@ map.on('pointermove', function(evt) {
                 }
             }).catch(error => console.error('Error fetching measurements:', error));
         } else if (properties.source === 'NLWKN') {
-            console.log('NLWKN station');
             let tooltipContent = `
             <strong>${properties.Name}</strong><br>
             <strong>${properties.GewaesserName}</strong><br>
@@ -138,18 +140,17 @@ map.on('pointermove', function(evt) {
                 const datenspur = data.Parameter[0].Datenspuren[0];
                 const time = datenspur.AktuellerMesswert_Zeitpunkt.split(' ')[1];
                 tooltipContent = `
-                <strong>${properties.Name}</strong><br>
-                <strong>${properties.GewaesserName}</strong><br>
-                <strong>${datenspur.AktuellerMesswert} ${datenspur.ParameterEinheit}</strong> (${time})<br>
-                <strong>${datenspur.AktuellerMesswertNNM} m+NN</strong>
-            `;
+                    <strong>${properties.Name}</strong><br>
+                    <strong>${properties.GewaesserName}</strong><br>
+                    <strong>${datenspur.AktuellerMesswert} ${datenspur.ParameterEinheit}</strong> (${time})<br>
+                    <strong>${datenspur.AktuellerMesswertNNM} m+NN</strong>
+                `;
                 tooltipElement.innerHTML = tooltipContent;
             });
-            }
-            tooltipElement.style.display = 'block';
         }
+        tooltipElement.style.display = 'block';
     }
-);
+});
 
 map.addLayer(vectorLayer);
 
