@@ -12,7 +12,7 @@ app.include_router(flood_map)
 
 @app.get("/", include_in_schema=False)
 async def root(request: Request):
-    return RedirectResponse("/static/flood_map.html")
+    return RedirectResponse("/static/flood_map_ol.html")
 
 
 if __name__ == "__main__":
