@@ -57,12 +57,14 @@ transformer_to_wgs84 = Transformer.from_crs(
 def convert_bounds_to_epsg25832(
     lat_min: float, lon_min: float, lat_max: float, lon_max: float
 ) -> tuple[tuple[float, float], tuple[float, float]]:
-    x_min, y_min = transformer_to_epsg25832.transform(lon_min, lat_min)
-    x_max, y_max = transformer_to_epsg25832.transform(lon_max, lat_max)
-    x_min = round_down_to_1000(x_min)
-    y_min = round_down_to_1000(y_min)
-    x_max = round_up_to_1000(x_max)
-    y_max = round_up_to_1000(y_max)
+    x_ll, y_ll = transformer_to_epsg25832.transform(lon_min, lat_min)
+    x_lr, y_lr = transformer_to_epsg25832.transform(lon_max, lat_min)
+    x_ul, y_ul = transformer_to_epsg25832.transform(lon_min, lat_max)
+    x_ur, y_ur = transformer_to_epsg25832.transform(lon_max, lat_max)
+    x_min = round_down_to_1000(min(x_ll, x_ul))
+    y_min = round_down_to_1000(min(y_ll, y_lr))
+    x_max = round_up_to_1000(max(x_lr, x_ur))
+    y_max = round_up_to_1000(max(y_ul, y_ur))
     return (x_min, y_min), (x_max, y_max)
 
 
