@@ -1,8 +1,0 @@
-fastapi
-uvicorn
-numpy
-matplotlib
-rasterio
-requests
-pyproj
-pillow
